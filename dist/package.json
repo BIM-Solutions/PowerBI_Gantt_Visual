@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Andrew Hipwood","email":"andrew.hipwood@bakerhicks.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/gantVisualCD8337470AD2446582CE346448728429.pbiviz.json"
+			}
+		],
+		"visual": {"name":"gantVisual","displayName":"GantVisual","guid":"gantVisualCD8337470AD2446582CE346448728429","visualClassName":"Visual","version":"1.0.0.0","description":"custom gantt chart built for BakerHicks ONLY!!!","supportUrl":"bakerhicks.com","gitHubUrl":""},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}

@@ -1,0 +1,176 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Item",
+            "name": "item",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Parent",
+            "name": "parent",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Item Name",
+            "name": "itemName",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Start date",
+            "name": "startDate",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "End date",
+            "name": "endDate",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Progress",
+            "name": "progress",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "Legend",
+            "name": "legend",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Label",
+            "name": "label",
+            "kind": "Measure"
+        },
+        {
+            "displayName": "Additional Columns",
+            "name": "additionalColumns",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Legend Value",
+            "name": "legendValue",
+            "kind": "Grouping"
+        }
+    ],
+    "objects": {
+        "dataPoint": {
+            "properties": {
+                "defaultColor": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "showAllDataPoints": {
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "fill": {
+                    "type": {
+                        "fill": {
+                            "solid": {
+                                "color": true
+                            }
+                        }
+                    }
+                },
+                "fillRule": {
+                    "type": {
+                        "fill": {}
+                    }
+                },
+                 "fontSize": {
+                    "type": {
+                        "formatting": {
+                            "fontSize": true
+                        }
+                    }
+                }
+            }
+        },
+        "legend": {
+            "displayName": "Legend",
+            "properties": {
+                "position": {
+                    "displayName": "Position",
+                    "type": {
+                        "enumeration": [
+                            { "value": "top" },
+                            { "value": "bottom" },
+                            { "value": "left" },
+                            { "value": "right" }
+                        ]
+                    }
+                },
+                "fontSize": {
+                    "displayName": "Font Size",
+                    "type": { "formatting": { "fontSize": true } }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "table": {
+                "rows": {
+                    "select": [
+                        {
+                            "for": {
+                                "in": "item"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "parent"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "itemName"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "startDate"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "endDate"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "progress"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "legend"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "label"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "additionalColumns"
+                            }
+                        },
+                        {
+                            "for": {
+                                "in": "legendValue"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "privileges": []
+}

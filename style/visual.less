@@ -1,0 +1,85 @@
+
+.clearCatcher {
+  fill-opacity: 0;
+}
+
+.legend .navArrow {
+  fill: #333333;
+  cursor: pointer;
+  /* stroke enabled for a bigger click target, but smaller visible arrow size */
+  stroke: #FFF;
+  stroke-width: 2px;
+}
+
+.data-labels {
+  font-size: 12px;
+  text-anchor: middle;
+  font-family: helvetica, arial, sans-serif;
+  pointer-events: none;
+}
+.visual .gantt-body {
+  overflow: auto;
+  position: absolute;
+}
+.visual .gantt {
+  position: absolute;
+}
+.visual .gantt .axis {
+  font-size: 10px;
+}
+.visual .gantt .axis path,
+.visual .gantt .axis line {
+  stroke: #000;
+}
+.visual .gantt .axis path {
+  fill: none;
+  stroke-width: 1.5;
+}
+.visual .gantt .axis line {
+  stroke-width: 1;
+}
+.visual .gantt .tasks .task .task-resource {
+  font-size: medium;
+  font-weight: bold;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.22px;
+}
+.visual .gantt .tasks .task .task-progress {
+  opacity: 1;
+}
+.visual .gantt .tasks .task .task-pseudo-gradient {
+  opacity: 0.4;
+  fill: white!important;
+}
+.visual .gantt .chart-line {
+  stroke-width: 2px;
+  stroke-dasharray: 3, 3;
+  stroke: #000;
+}
+.visual .gantt .task-labels {
+  width: 110px;
+}
+.visual .gantt .task-lines .label {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.22px;
+}
+.visual .gantt .task-lines .label .parent {
+  font-weight: 700;
+}
+.visual .gantt .task-lines .label .child {
+  font-style: oblique;
+}
+.rc-slider {
+  margin: 20px;
+  background: transparent;
+  height: 6px;
+}
+.rc-slider-handle {
+  border: 2px solid #2e2f2f !important;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  background: white;
+}
+
