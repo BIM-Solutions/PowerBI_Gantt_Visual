@@ -114,59 +114,24 @@
     },
     "dataViewMappings": [
         {
-            "table": {
-                "rows": {
+            "categorical": {
+                "categories": {
                     "select": [
-                        {
-                            "for": {
-                                "in": "item"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "parent"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "itemName"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "startDate"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "endDate"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "progress"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "legend"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "label"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "additionalColumns"
-                            }
-                        },
-                        {
-                            "for": {
-                                "in": "legendValue"
-                            }
-                        }
+                        { "for": { "in": "item" } },
+                        { "for": { "in": "parent" } },
+                        { "for": { "in": "itemName" } },
+                        { "for": { "in": "startDate" } },
+                        { "for": { "in": "endDate" } },
+                        { "for": { "in": "legend" } },
+                        { "for": { "in": "legendValue" } },
+                        { "for": { "in": "additionalColumns" } }
+                    ]
+                },
+                "values": {
+                    "select": [
+                        { "for": { "in": "progress" } },
+                        { "for": { "in": "label" } }
+                        
                     ]
                 }
             }

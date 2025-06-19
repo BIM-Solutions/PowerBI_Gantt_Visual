@@ -28,10 +28,12 @@ type GanttChartProps = {
     additionalColumns: { key: string; displayName: string; format?: string }[];
     labelDisplayName?: string;
     labelParentName?: string;
+    labelItemName?: string;
     legendPosition?: 'top' | 'bottom' | 'left' | 'right';
     legendFontSize?: number;
     selectionManager?: any; // Will type properly after import
     host?: any; // Will type properly after import
+    selectedIds?: any[]; // <-- NEW
 };
 
 const useStyles = makeStyles({
@@ -46,7 +48,6 @@ const useStyles = makeStyles({
     tableHeader: {
         fontWeight: 700,
         fill: tokens.colorNeutralForeground1,
-        // fontSize: 14,
     },
     rowHeader: {
         textAnchor: "start",
@@ -63,13 +64,16 @@ const useStyles = makeStyles({
         stroke: "#e1e1e1"
     },
     altRow: {
-        fill: "#fafafa"
+        fill: "#fafafa",
+    },
+    leftColBorder: {
+        stroke: tokens.colorNeutralStroke1,
+        strokeWidth: "1.5px",
     },
     tooltip: {
         position: "absolute",
         background: "#fff",
         border: "1px solid #ccc",
-        // borderRadius: 4,
         padding: "8px 12px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
         pointerEvents: "none",
@@ -90,9 +94,6 @@ const useStyles = makeStyles({
         gap: "6px"
     },
     legendSwatch: {
-        // width: 16,
-        // height: 16,
-        // borderRadius: 4,
         display: "inline-block"
     },
     headerSvg: {
@@ -104,7 +105,6 @@ const useStyles = makeStyles({
         overflowX: "hidden",
         width: "100%",
         background: "#fff"
-        
     }
 });
 
@@ -129,9 +129,10 @@ const useStyles = makeStyles({
 //   </div>
 // );
 
-export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, additionalColumns, labelDisplayName, labelParentName, legendPosition = 'top', legendFontSize = 14, selectionManager, host }) => {
-    // console.log('GanttChart additionalColumns:', additionalColumns);
-    // console.log('GanttChart tasks sample:', tasks.slice(0, 3));
+export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, additionalColumns, labelDisplayName, labelParentName, labelItemName, legendPosition = 'top', legendFontSize = 14, selectionManager, host, selectedIds = [] }) => {
+
+    let allowInteractions = host.hostCapabilities.allowInteractions;
+
     const styles = useStyles();
     const [tooltip, setTooltip] = React.useState<null | { x: number; y: number; content: string }>(null);
     const [zoom, setZoom] = React.useState({ start: 0, end: 1 }); // 0-1 range
@@ -289,20 +290,39 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
 
     // Selection/context menu handlers
     const handleBarClick = async (e: React.MouseEvent, task: Task) => {
-        console.log("Clicked task identity:", task.identity);
-        if (selectionManager && host && task.identity) {
-            await selectionManager.select([task.identity], false);
+        if (!allowInteractions) return;
+        e.preventDefault();
+        e.stopPropagation();
+    
+        const id = task.identity;
+
+    
+        if (!id || typeof id.equals !== "function") {
+            console.error("Invalid identity object:", id);
+            return;
+        }
+    
+        try {
+            await selectionManager.select([id], false);
+        } catch (err) {
+            console.error("Selection failed:", err);
         }
     };
+    
     const handleBarContextMenu = (e: React.MouseEvent, task: Task) => {
-        if (selectionManager && host) {
-            e.preventDefault();
-            const selectionId = host.createSelectionId ? host.createSelectionId() : null;
-            // TODO: Attach identity if available
-            if (selectionId && host.launchContextMenu) {
-                host.launchContextMenu(selectionId, { x: e.clientX, y: e.clientY });
-            }
+        if (!allowInteractions) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (selectionManager && task.identity) {
+            selectionManager.showContextMenu(task.identity, { x: e.clientX, y: e.clientY });
         }
+    };
+
+    // Helper to check if a task is selected
+    const isTaskSelected = (task: Task) => {
+        if (!selectedIds || !Array.isArray(selectedIds) || !task.identity) return false;
+        return selectedIds.some(id => id && typeof id.equals === 'function' && id.equals(task.identity));
     };
 
     return (
@@ -330,7 +350,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                 {/* Today's date line */}
                 <line
                     x1={todayX}
-                    y1={0}
+                    y1={35}
                     x2={todayX}
                     y2={headerHeight}
                     stroke="#d83b01"
@@ -338,8 +358,8 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                     // strokeDasharray="4 2"
                 />
                 <text
-                    x={todayX + 4}
-                    y={12}
+                    x={todayX + 2}
+                    y={50}
                     fontSize={11}
                     fill="#d83b01"
                     fontWeight={700}
@@ -357,8 +377,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                 />
                 {/* Table headers for left panel */}
                 <g>
-                    <text x={8} y={headerHeight - 24} className={styles.tableHeader}>{labelParentName}</text>
-                    <text x={120} y={headerHeight - 24} className={styles.tableHeader}>Item</text>
+                    <text x={8} y={headerHeight - 24} className={styles.tableHeader}>{labelParentName ? `${labelParentName}/${labelItemName}` : `${labelItemName}`}</text>
                     {additionalColumns.map((col, idx) => (
                         <text key={col.key} x={220 + idx * 110} y={headerHeight - 24} className={styles.tableHeader}>{col.displayName}</text>
                     ))}
@@ -371,7 +390,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                     {/* Date axis (top) */}
                     {months.map((m, i) => (
                         <g key={i}>
-                            {/* <text x={m.x + 4} y={chartPadding - 4} fontSize={12} fill="#888">{m.label}</text> */}
                             <line x1={m.x} y1={0} x2={m.x} y2={chartHeight - chartPaddingBottom} className={styles.gridLine} strokeDasharray="4 2" strokeWidth={1} />
                         </g>
                     ))}
@@ -391,6 +409,27 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                             strokeWidth={1}
                         />
                     ))}
+                    {/* Grey borders for all left columns */}
+                    {/* Group column border */}
+                    <line x1={0} y1={0} x2={0} y2={chartHeight} stroke="#e1e1e1" strokeWidth={1} />
+                    {/* Item column border */}
+                    <line x1={120} y1={0} x2={120} y2={chartHeight} stroke="#e1e1e1" strokeWidth={1} />
+                    {/* Additional columns borders */}
+                    {additionalColumns.map((col, idx) => (
+                        <line
+                            key={`addcol-border-${idx}`}
+                            x1={220 + idx * 110}
+                            y1={0}
+                            x2={220 + idx * 110}
+                            y2={chartHeight}
+                            stroke="#e1e1e1"
+                            strokeWidth={1}
+                        />
+                    ))}
+                    {/* Right border of left columns (before Gantt area) */}
+                    <line x1={leftColWidth} y1={0} x2={leftColWidth} y2={chartHeight} stroke="#e1e1e1" strokeWidth={1.5} />
+                    {/* Left column border */}
+                    <line x1={leftColWidth} y1={0} x2={leftColWidth} y2={chartHeight} className={styles.leftColBorder} />
                     {/* Bottom axis */}
                     <line x1={leftColWidth} y1={chartHeight - chartPaddingBottom} x2={width - chartPaddingRight} y2={chartHeight - chartPaddingBottom} stroke="#bbb" strokeWidth={1.5} />
                     <text x={leftColWidth} y={chartHeight - chartPaddingBottom + 18} fontSize={12} fill="#888">{minDate.toLocaleDateString()}</text>
@@ -403,7 +442,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                         y2={chartHeight - chartPaddingBottom}
                         stroke="#d83b01"
                         strokeWidth={2}
-                        // strokeDasharray="4 2"
                     />
                     {/* White overlay for left column */}
                     <rect
@@ -417,6 +455,16 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                     {/* Render all left column text/labels/items/groups/additional columns here */}
                     {flatRows.map((row, i) => (
                         <g key={i}>
+                            {/* Striped row background for left column only */}
+                            {i % 2 === 1 && (
+                                <rect
+                                    x={0}
+                                    y={i * rowHeight}
+                                    width={leftColWidth}
+                                    height={rowHeight}
+                                    className={styles.altRow}
+                                />
+                            )}
                             {/* Parent (group) row */}
                             {row.type === "parent" && (
                                 <>
@@ -424,7 +472,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                         style={{ cursor: "pointer" }}
                                         onClick={() => setExpandedGroups(exp => ({ ...exp, [row.parent]: exp[row.parent] === false }))}
                                     >
-                                        {/* Transparent rect for larger click area */}
                                         <rect
                                             x={0}
                                             y={i * rowHeight}
@@ -442,10 +489,11 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                             y={i * rowHeight + rowYOffset}
                                             fontWeight={700}
                                             fontSize={15}
-                                            fill="#222"
+                                            fill={row.parent     === "Not Assigned" ? "red" : "#222"}
+                                            style={{ fill: row.parent !== "null" ? "#222" : "red" , zIndex: 1000000}}
                                             className={styles.rowHeader}
                                         >
-                                            {row.parent || "Not Assigned"}
+                                            {row.parent && row.parent.trim() !== "null" ? row.parent : "Not Assigned"}
                                         </text>
                                     </g>
                                 </>
@@ -457,21 +505,15 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                         x={getIndent("item") + 8}
                                         y={i * rowHeight + rowYOffset}
                                         fontWeight={600}
-                                        fontSize={13}                                       
-                                        fill={row.task.name === "Not Assigned" ? "red" : "#222"} // Ensure this is set correctly
-                                        style={{ fill: row.task.name  ? "#222" : "red" , zIndex: 1000000}}
+                                        fontSize={13}
+                                        fill={row.task.name === "Not Assigned" ? "red" : "#222"}
+                                        style={{ fill: row.task.name !== "null" ? "#222" : "red" , zIndex: 1000000}}
                                     >
-                                        {row.task.name || "Not Assigned"}
+                                        {row.task.name && row.task.name.trim() !== "null" ? row.task.name : "Not Assigned"}
                                     </text>
                                     {additionalColumns.map((col, idx) => {
                                         let value = row.task[col.key];
-                                        // Format if it's a date and a format string is provided
-                                        console.log("col.format", col.format);
-                                            console.log("value", value);
                                         if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) {
-                                            // Example: use toLocaleDateString for 'Short Date'
-                                            console.log("col.format", col.format);
-                                            console.log("value", value);
                                             value = new Date(value).toLocaleDateString();
                                         }
                                         return (
@@ -482,11 +524,10 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                                 fontSize={12}
                                                 fill="#444"
                                             >
-                                                {value ?? ""}
+                                                {value !== undefined && value !== null && value !== "" ? value : "—"}
                                             </text>
                                         );
                                     })}
-                                    
                                     {/* Task bar */}
                                     {row.task.start && row.task.end && (
                                         <g>
@@ -505,13 +546,14 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                                             width={barWidth}
                                                             height={barHeight}
                                                             rx={4}
-                                                            fill={row.task.color}
+                                                            fill={isTaskSelected(row.task) ? tokens.colorPaletteYellowBackground2 : row.task.color}
+                                                            stroke={isTaskSelected(row.task) ? tokens.colorPaletteYellowBorder2 : 'none'}
+                                                            strokeWidth={isTaskSelected(row.task) ? 3 : 0}
                                                             onMouseOver={e => handleBarMouseOver(e, row.task!)}
                                                             onMouseOut={handleBarMouseOut}
                                                             onClick={e => handleBarClick(e, row.task!)}
                                                             onContextMenu={e => handleBarContextMenu(e, row.task!)}
                                                         />
-                                                        {/* Progress overlay (darker shade) */}
                                                         <rect
                                                             x={barStartX}
                                                             y={i * rowHeight + barYOffset}
@@ -521,7 +563,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                                             fill="#000"
                                                             opacity={0.18}
                                                         />
-                                                        {/* Progress label inside bar */}
                                                         <text
                                                             x={barStartX + 8}
                                                             y={i * rowHeight + rowYOffset}
@@ -532,7 +573,6 @@ export const GanttChart: React.FC<GanttChartProps> = ({ width, height, tasks, ad
                                                         >
                                                             {row.task.progress > 0 ? `${Math.round(row.task.progress * 100)}%` : "0%"}
                                                         </text>
-                                                        {/* Centered label inside bar */}
                                                         <text
                                                             x={barCenterX}
                                                             y={i * rowHeight + rowYOffset}

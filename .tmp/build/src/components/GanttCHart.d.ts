@@ -25,10 +25,12 @@ type GanttChartProps = {
     }[];
     labelDisplayName?: string;
     labelParentName?: string;
+    labelItemName?: string;
     legendPosition?: 'top' | 'bottom' | 'left' | 'right';
     legendFontSize?: number;
     selectionManager?: any;
     host?: any;
+    selectedIds?: any[];
 };
 export declare const GanttChart: React.FC<GanttChartProps>;
 export {};

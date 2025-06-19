@@ -37,8 +37,11 @@ import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
 import IVisual = powerbi.extensibility.visual.IVisual;
 import VisualHost = powerbi.extensibility.visual.IVisualHost;
 import ISelectionManager = powerbi.extensibility.ISelectionManager;
+import ISelectionIdBuilder = powerbi.extensibility.ISelectionIdBuilder;
 
 import { VisualFormattingSettingsModel } from "./settings";
+//dataviewcolumn
+import DataViewCategoryColumn = powerbi.DataViewCategoryColumn;
 
 export class Visual implements IVisual {
     private root: ReactDOM.Root;
@@ -46,12 +49,20 @@ export class Visual implements IVisual {
     private formattingSettingsService: FormattingSettingsService;
     private selectionManager: ISelectionManager;
     private host: VisualHost;
+    private selectedIds: any[] = [];
 
     constructor(options: VisualConstructorOptions) {
         this.formattingSettingsService = new FormattingSettingsService();
         this.root = ReactDOM.createRoot(options.element);
         this.host = options.host as VisualHost;
         this.selectionManager = this.host.createSelectionManager();
+        // Listen for selection changes if possible
+        if (this.selectionManager['registerOnSelectCallback']) {
+            this.selectionManager['registerOnSelectCallback']((ids: any[]) => {
+                this.selectedIds = ids;
+                this.renderGanttChart();
+            });
+        }
     }
 
     public update(options: VisualUpdateOptions) {
@@ -61,42 +72,55 @@ export class Visual implements IVisual {
         );
 
         const dataView = options.dataViews[0];
-        const rows = dataView.table.rows;
-        const columns = dataView.table.columns;
-        // console.log('Power BI columns:', columns);
+        const categorical = dataView.categorical;
+        if (!categorical) {
+            // No data, render empty
+            this.root.render(<div>No data</div>);
+            return;
+        }
 
-        // Helper to get column index by role
-        const getColumnIndex = (roleName: string) =>
-            columns.findIndex(col => col.roles && col.roles[roleName]);
+        // Map roles to category/value columns
+        const categoryColumns = categorical.categories || [];
+        const valueColumns = categorical.values || { forEach: () => {}, length: 0 };
 
-        const itemIdx = getColumnIndex("item");
-        const parentIdx = getColumnIndex("parent");
-        const itemNameIdx = getColumnIndex("itemName");
-        const startIdx = getColumnIndex("startDate");
-        const endIdx = getColumnIndex("endDate");
-        const progressIdx = getColumnIndex("progress");
-        const legendIdx = getColumnIndex("legend");
-        const labelIdx = getColumnIndex("label");
-        const additionalColumnsIdx = getColumnIndex("additionalColumns");
-        const legendValueIdx = getColumnIndex("legendValue");
-
-        // Helper to safely get a string value
-        const getString = (val: any) => (val === null || val === undefined ? "" : String(val));
-        // Helper to safely get a number value
-        const getNumber = (val: any) => {
-            const n = Number(val);
-            return isNaN(n) ? 0 : n;
+        // Helper to get category column by role
+        const getCategory = (role: string) => categoryColumns.find(col => col.source.roles && col.source.roles[role]);
+        // Helper to get value column by role
+        const getValue = (role: string) => {
+            if (!categorical.values) return undefined;
+            return categorical.values.find(col => col.source.roles && col.source.roles[role]);
         };
-        // Helper to safely get a date value
-        const getDate = (val: any) => {
-            if (!val) return null;
-            if (val instanceof Date) return val;
-            if (typeof val === "string" || typeof val === "number") {
-                const d = new Date(val);
-                return isNaN(d.getTime()) ? null : d;
-            }
-            return null;
-        };
+
+        const itemCol = getCategory("item");
+        const parentCol = getCategory("parent");
+        const itemNameCol = getCategory("itemName");
+        const startCol = getCategory("startDate");
+        const endCol = getCategory("endDate");
+        const legendCol = getCategory("legend");
+        const legendValueCol = getCategory("legendValue");
+        const progressCol = getValue("progress");
+        const labelCol = getValue("label");
+
+        // Helper to check if valueColumns is an array
+        const isArray = Array.isArray(valueColumns);
+        const seen = new Set();
+        const additionalColumns = categoryColumns
+            .filter(col => col.source.roles && col.source.roles["additionalColumns"])
+            .filter(col => {
+                if (seen.has(col.source.queryName)) return false;
+                seen.add(col.source.queryName);
+                return true;
+            })
+            .map(col => ({
+                key: col.source.queryName,
+                displayName: col.source.displayName,
+                idx: col.source.index,
+                format: col.source.format
+            }));
+
+        const labelDisplayName = labelCol ? labelCol.source.displayName : "Label";
+        const labelParentName = parentCol ? parentCol.source.displayName : "Parent";
+        const labelItemName = itemNameCol ? itemNameCol.source.displayName : "Item";
 
         // Assign a color for each legend value (simple hash for demo)
         const colorPalette = [
@@ -105,58 +129,72 @@ export class Visual implements IVisual {
         const legendColorMap: Record<string, string> = {};
         let colorIdx = 0;
 
-        const mainRoles = ["item", "parent", "itemName", "startDate", "endDate", "progress", "legend", "label", "legendValue"];
-        const additionalColumns = columns
-            .filter(col => col.roles && col.roles["additionalColumns"])
-            .map(col => ({ key: col.queryName, displayName: col.displayName, idx: col.index, format: col.format }));
-        const labelDisplayName = labelIdx >= 0 ? columns[labelIdx].displayName : "Label";
-        const labelParentName = parentIdx >= 0 ? columns[parentIdx].displayName : "Parent";
-        
-        const identities = dataView.table.identity; // array of DataViewScopeIdentity
-        const tasks: Task[] = rows.map((row, i) => {
-            const legendValue = legendIdx >= 0 ? getString(row[legendIdx]) : "";
+        const rowCount = itemCol ? itemCol.values.length : 0;
+        const tasks: Task[] = [];
+        for (let i = 0; i < rowCount; i++) {
+            const legendValue = legendCol ? String(legendCol.values[i]) : "";
             if (legendValue && !legendColorMap[legendValue]) {
                 legendColorMap[legendValue] = colorPalette[colorIdx % colorPalette.length];
                 colorIdx++;
             }
-            // Build the base task
+            const selectionBuilder: ISelectionIdBuilder = this.host
+            .createSelectionIdBuilder()
+            .withCategory(dataView.categorical.categories[0], i);
+            // Safely parse start and end as Date only if string or number
+            let startVal = startCol ? startCol.values[i] : null;
+            let endVal = endCol ? endCol.values[i] : null;
+            const start = (typeof startVal === 'string' || typeof startVal === 'number') ? new Date(startVal) : null;
+            const end = (typeof endVal === 'string' || typeof endVal === 'number') ? new Date(endVal) : null;
             const task: Task = {
-                id: getString(row[itemIdx]),
-                group: parentIdx >= 0 ? getString(row[parentIdx]) : "",
+                id: itemCol ? String(itemCol.values[i]) : String(i),
+                group: parentCol ? String(parentCol.values[i]) : "",
                 owner: legendValue,
-                name: itemNameIdx >= 0 ? getString(row[itemNameIdx]) : getString(row[itemIdx]),
-                start: getDate(row[startIdx]),
-                end: getDate(row[endIdx]),
-                progress: progressIdx >= 0 ? getNumber(row[progressIdx]) : 0,
+                name: itemNameCol ? String(itemNameCol.values[i]) : (itemCol ? String(itemCol.values[i]) : String(i)),
+                start,
+                end,
+                progress: progressCol ? Number(progressCol.values[i]) : 0,
                 color: legendValue ? legendColorMap[legendValue] : "#0078d4",
-                legendValue: legendValue,
-                label: labelIdx >= 0 ? getString(row[labelIdx]) : "",
-                identity: identities ? identities[i] : undefined // Attach the real identity object
+                legendValue: legendValueCol ? String(legendValueCol.values[i]) : legendValue,
+                label: labelCol ? String(labelCol.values[i]) : "",
+                identity: selectionBuilder.createSelectionId(),
             };
+
             additionalColumns.forEach(col => {
-                task[col.key] = row[col.idx];
+                const catCol = categoryColumns.find(c => c.source.queryName === col.key);
+                if (catCol) {
+                    task[col.key] = catCol.values[i];
+                }
             });
-            return task;
-        });
-        console.log("Sample identity from dataView:", identities?.[0]);
-        console.log("Sample task with identity:", tasks[0]);
+            tasks.push(task);
+        }
 
         // Read legend formatting settings
         const legendPosition = this.formattingSettings.legendCard?.position?.value?.value || "top";
         const legendFontSize = this.formattingSettings.legendCard?.fontSize?.value || 14;
 
+        console.log("additionalColumns", additionalColumns);
+
+        this.renderGanttChart({
+            width: options.viewport.width,
+            height: options.viewport.height,
+            tasks,
+            additionalColumns,
+            labelDisplayName,
+            labelParentName,
+            labelItemName,
+            legendPosition: legendPosition as 'top' | 'bottom' | 'left' | 'right',
+            legendFontSize,
+            selectionManager: this.selectionManager,
+            host: this.host,
+            selectedIds: this.selectedIds
+        });
+    }
+
+    private renderGanttChart(propsOverride?: any) {
+        // Use the last known props or override
         this.root.render(
             <GanttChart
-                width={options.viewport.width}
-                height={options.viewport.height}
-                tasks={tasks}
-                additionalColumns={additionalColumns}
-                labelDisplayName={labelDisplayName}
-                labelParentName={labelParentName}
-                legendPosition={legendPosition as 'top' | 'bottom' | 'left' | 'right'}
-                legendFontSize={legendFontSize}
-                selectionManager={this.selectionManager}
-                host={this.host}
+                {...(propsOverride || {})}
             />
         );
     }
